@@ -3,26 +3,34 @@ import { useNavigate } from "react-router";
 import { auth, db } from "../services/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import { useAuth } from "../services/AuthContext"; 
+
 
 const Login = () => {
+  const { isAuthenticated,login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false); // New loading state
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");  // Reset error state on new submit
+    setLoading(true);  // Set loading to true when login starts
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      console.log("Logged in user:", user); // Log the logged-in user to check if the login is successful
+      // console.log("Logged in user:", user); // Log the logged//-in user to check if the login is successful
 
       // Fetch user details from Firestore to determine user type
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
+        login();
+
         const userType = userDoc.data().userType;
-        console.log("User type from Firestore:", userType); // Log the userType from Firestore
+        
+        // console.log("User type from Firestore:", userType); // Log the userType from Firestore
         
         // Navigate to the appropriate dashboard based on userType
         if (userType === "donor") {
@@ -37,7 +45,15 @@ const Login = () => {
       }
     } catch (err) {
       console.error("Error during login:", err);  // Log the error to the console for debugging
-      setError("Login failed: " + err.message);  // Provide more detailed error message
+      if (err.code === 'auth/user-not-found') {
+        setError("No user found with this email.");
+      } else if (err.code === 'auth/wrong-password') {
+        setError("Incorrect password.");
+      } else {
+        setError("Login failed: " + err.message);  // Provide more detailed error message
+      }
+    } finally {
+      setLoading(false);  // Set loading to false once the login process is complete
     }
   };
 
@@ -94,8 +110,9 @@ const Login = () => {
           <button
             type="submit"
             className="w-full bg-blue-500 text-white py-2 rounded-md font-medium hover:bg-blue-600 transition"
+            disabled={loading} // Disable the button when loading
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 

@@ -1,18 +1,21 @@
 import React, { useState } from "react";
 import { collection, addDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { db } from "../services/firebase";
+import { db, storage } from "../services/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../services/firebase"; // assuming you have initialized Firebase Storage
 
 const DonationForm = () => {
   const [formData, setFormData] = useState({
     type: "",
     description: "",
     location: "",
+    coordinates: null,
     image: null,
   });
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const auth = getAuth();
+
+  const ngoCoordinates = { lat: 12.9716, lng: 77.5946 }; // Replace with your NGO's coordinates
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -23,6 +26,47 @@ const DonationForm = () => {
     setFormData({ ...formData, image: e.target.files[0] });
   };
 
+  const fetchCoordinates = async (address) => {
+    setIsFetchingLocation(true);
+    try {
+      const apiKey = "7e9dd312598e4d6cb649535f3218f399"; // Replace with your OpenCage API key
+      const response = await fetch(
+        `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
+          address
+        )}&key=${"7e9dd312598e4d6cb649535f3218f399"}`
+      );
+      const data = await response.json();
+
+      if (data.results && data.results.length > 0) {
+        const { lat, lng } = data.results[0].geometry;
+        setFormData((prev) => ({ ...prev, coordinates: { lat, lng } }));
+        setIsFetchingLocation(false);
+      } else {
+        alert("Unable to fetch coordinates. Please check the location entered.");
+        setIsFetchingLocation(false);
+      }
+    } catch (error) {
+      console.error("Error fetching coordinates:", error);
+      alert("Error fetching coordinates. Please try again.");
+      setIsFetchingLocation(false);
+    }
+  };
+
+  const calculateDistance = (coords1, coords2) => {
+    const toRadians = (degrees) => (degrees * Math.PI) / 180;
+
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = toRadians(coords2.lat - coords1.lat);
+    const dLng = toRadians(coords2.lng - coords1.lng);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRadians(coords1.lat)) *
+        Math.cos(toRadians(coords2.lat)) *
+        Math.sin(dLng / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in kilometers
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -31,9 +75,15 @@ const DonationForm = () => {
         alert("You must be logged in to donate.");
         return;
       }
-      
+
+      if (!formData.coordinates) {
+        alert("Please wait for the location coordinates to be fetched.");
+        return;
+      }
+
+      const distance = calculateDistance(formData.coordinates, ngoCoordinates);
+
       let imageUrl = null;
-      
       // Handle image upload if there's an image
       if (formData.image) {
         const imageRef = ref(storage, `donations/${formData.image.name}`);
@@ -42,15 +92,15 @@ const DonationForm = () => {
       }
 
       // Add donation data to Firestore
-      console.log("submitted");
-      const docRef = await addDoc(collection(db, "donations"), {
-        ...formData, // Spread form data (type, description, location, image)
-        imageUrl: imageUrl, // Add image URL from Firebase Storage (if there's an image)
-        donorId: user.uid, // Add the UID of the logged-in user
-        donorEmail: user.email, // Add the email of the logged-in user
-        timestamp: new Date(), // Add the current timestamp
+      await addDoc(collection(db, "donations"), {
+        ...formData,
+        imageUrl,
+        donorId: user.uid,
+        donorEmail: user.email,
+        timestamp: new Date(),
+        uid: user.uid,
+        distance, // Store the calculated distance
       });
-      
       alert("Donation submitted successfully!");
     } catch (error) {
       console.error("Error submitting donation:", error);
@@ -59,21 +109,16 @@ const DonationForm = () => {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-lg mx-auto bg-white shadow-md rounded-lg p-8 space-y-6"
-    >
+    <form onSubmit={handleSubmit} className="max-w-lg mx-auto bg-white shadow-md rounded-lg p-8 space-y-6">
       <h2 className="text-2xl font-semibold text-center text-gray-800">Donation Form</h2>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 ">
-          Type of Donation:
-        </label>
+        <label className="block text-sm font-medium text-gray-700">Type of Donation:</label>
         <select
           name="type"
           value={formData.type}
           onChange={handleInputChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 p-2 focus:border-blue-500"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
           required
         >
           <option value="">Select a type</option>
@@ -90,7 +135,7 @@ const DonationForm = () => {
           value={formData.description}
           onChange={handleInputChange}
           required
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
         />
       </div>
 
@@ -100,11 +145,18 @@ const DonationForm = () => {
           type="text"
           name="location"
           value={formData.location}
-          onChange={handleInputChange}
+          onChange={(e) => {
+            handleInputChange(e);
+            fetchCoordinates(e.target.value); // Fetch coordinates on input change
+          }}
           required
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
         />
       </div>
+
+      {isFetchingLocation && (
+        <p className="text-sm text-blue-500">Fetching coordinates for the entered location...</p>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700">Upload Image:</label>
@@ -117,7 +169,8 @@ const DonationForm = () => {
 
       <button
         type="submit"
-        className="w-full bg-blue-500 text-white font-medium py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        className="w-full bg-blue-500 text-white font-medium py-2 px-4 rounded-md hover:bg-blue-600"
+        disabled={isFetchingLocation} // Disable the button while fetching location
       >
         Submit
       </button>

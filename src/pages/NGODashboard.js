@@ -4,11 +4,22 @@ import { useNavigate } from "react-router";
 const NGODashboard = () => {
   const navigate = useNavigate();
 
+  const handleSignOut = () => {
+    // Logic to handle sign-out can be added here, e.g., clearing session or token
+    navigate("/");
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-green-600 text-white py-4">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 flex justify-between items-center">
           <h1 className="text-3xl font-bold">NGO Dashboard</h1>
+          <button
+            onClick={handleSignOut}
+            className="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Sign Out
+          </button>
         </div>
       </header>
 
@@ -32,12 +43,14 @@ const NGODashboard = () => {
           <div className="flex space-x-4">
             <button
               onClick={() => navigate("/donations")}
-              className="bg-blue-500 text-white font-medium py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              className="bg-blue-500 text-white font-medium py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
               View Available Donations
             </button>
             <button
               onClick={() => navigate("/notifications")}
-              className="bg-green-500 text-white font-medium py-2 px-4 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+              className="bg-green-500 text-white font-medium py-2 px-4 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
               Notifications
             </button>
           </div>

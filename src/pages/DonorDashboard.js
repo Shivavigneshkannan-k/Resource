@@ -1,18 +1,37 @@
 import React from "react";
 import { useNavigate } from "react-router";
+import { auth } from "../services/firebase"; // Import Firebase auth
 
 const DonorDashboard = () => {
   const navigate = useNavigate();
 
+  // Sign Out function
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut(); // Sign out from Firebase
+      navigate("/"); // Navigate to login page
+    } catch (error) {
+      console.error("Error signing out:", error);
+      alert("Failed to sign out. Please try again.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-blue-500 text-white py-4">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 flex justify-between items-center">
           <h1 className="text-3xl font-bold">Donor Dashboard</h1>
+          <button
+            onClick={handleSignOut}
+            className="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Sign Out
+          </button>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
+        {/* Welcome Section */}
         <section className="bg-white shadow-md rounded-lg p-6">
           <h2 className="text-2xl font-semibold text-gray-800">
             Welcome to the Donor Dashboard!

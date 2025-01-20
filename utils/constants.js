@@ -1,1 +1,0 @@
-export const USER_PROFILE = "https://img.icons8.com/?size=100&id=41799&format=png&color=000000";
